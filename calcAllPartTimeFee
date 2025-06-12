@@ -1,0 +1,113 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.sql.Time;
+import java.util.ArrayList;
+import java.util.List;
+
+class CalcAllPartTimeFee {
+    
+    public static void main(String[] args) {
+
+        final String COMMA = "," ; //コンマ
+       
+        
+        List<String> workingResults = new ArrayList<String>();   //勤務実績リスト
+        
+        try {
+            File file = new File("C:\\WorkSpace\\WorkingResult.csv");      
+            BufferedReader br = new BufferedReader(new FileReader(file));
+
+            String recode = br.readLine();
+            while (recode != null) {
+                workingResults.add(recode);
+                recode = br.readLine();
+            }
+            br.close();
+        } catch (IOException e) {
+            System.out.println(e);
+        }
+
+        int partTimeFeeByMonth = 0 ; //今月の給与
+        
+        //勤務実績リストから1日分ずつ給与を計算し、今月の給与を集計する
+        for (int i = 0; i < workingResults.size(); i++) {
+            
+            //勤務実績リストから1日分のデータを取り出す
+            String   workingRecordSt = workingResults.get(i);
+            
+            //カンマ区切りでデータを分割し、配列として再定義する
+            //（workingRecordAr[0]：出勤日、workingRecordAr[1]：出勤時間、workingRecordAr[2]：退勤時間）
+            String[] workingRecordAr = workingRecordSt.split(COMMA);
+            
+            //出勤時間と退勤時間を引数としてcalcPartTimeFeeByTheDayを起する
+            //戻り値として得られた値（1日あたりの給与）を今月の給与に合算する
+            partTimeFeeByMonth += calcPartTimeFeeByTheDay( workingRecordAr[1] , workingRecordAr[2] ) ;
+            
+        }
+
+        System.out.println("今月の給与は、" + partTimeFeeByMonth + "円です。"); 
+    }
+    
+    
+    public static int calcPartTimeFeeByTheDay( String st , String ed ) {
+        
+        final int    HOURLY_SALARY  = 900 ; //時給
+        final int    MINUTES_SALARY = HOURLY_SALARY / 60           ; //分給（小数点以下切り捨て）
+        final int    CONV_HOUR_TO_MILLISEC = 1000 * 60 * 60               ; //時間のミリ秒換算
+        final int    CONV_MINUTE_TO_MILLISEC = 1000 * 60                    ; //分のミリ秒換算
+        final int    CONV_HOUR_TO_MINUTE = 60                           ; //時間の分換算
+        final long   WORK_TIME_TYPE1_END = 6  * CONV_HOUR_TO_MILLISEC   ; //労働時間タイプ1（ミリ秒）（労働時間～6時間以下） - 終了時間
+        final long   WORK_TIME_TYPE2_START = 6  * CONV_HOUR_TO_MILLISEC   ; //労働時間タイプ2（ミリ秒）（労働時間6時間超～8時間以下） - 開始時間
+        final long   WORK_TIME_TYPE2_END = 8  * CONV_HOUR_TO_MILLISEC   ; //労働時間タイプ3（ミリ秒）（労働時間6時間超～8時間以下） - 終了時間
+        final long   WORK_TIME_TYPE3_START = 8  * CONV_HOUR_TO_MILLISEC   ; //労働時間タイプ4（ミリ秒）（労働時間8時間超～） - 開始時間
+        final long   REST_TIME_TYPE1 = 45 * CONV_MINUTE_TO_MILLISEC ; //休憩時間（ミリ秒）※労働時間タイプ1に適用
+        final long   REST_TIME_TYPE2 = 60 * CONV_MINUTE_TO_MILLISEC ; //休憩時間（ミリ秒）※労働時間タイプ2に適用
+        final double OVERTIME_SALARY_RATE = 1.25                         ; //残業代倍率 ※実質労働時間が8時間を超えた場合に適用
+        final int    ACTUAL_WORK_TIME_OVERTIME_OCCUR_MIN = 8  * CONV_HOUR_TO_MINUTE ; //残業が発生する実労働時間（分）（実労働時間8時間）
+        
+        Time startTime = Time.valueOf( st ) ; //出勤時間
+        Time finishTime = Time.valueOf( ed ) ; //退勤時間
+        long workTime  = finishTime.getTime() - startTime.getTime() ;//労働時間（ミリ秒）
+        int  actualWorkTimeMin = 0 ; //実労働時間（分）※休憩時間を差し引いた労働時間
+        int  partTimeFee = 0  ; //給与
+        
+        
+        
+        if (workTime <= WORK_TIME_TYPE1_END) {
+            //労働時間タイプ1（労働時間～6時間以下）の場合
+            
+            //実労働時間
+            actualWorkTimeMin = (int)( workTime / CONV_MINUTE_TO_MILLISEC ) ;
+            
+        } else if (workTime > WORK_TIME_TYPE2_START && workTime <= WORK_TIME_TYPE2_END) {
+            //労働時間タイプ2（労働時間6時間超～8時間以下）の場合
+            
+            //実労働時間
+            actualWorkTimeMin = (int)( (  workTime - REST_TIME_TYPE1 ) / CONV_MINUTE_TO_MILLISEC ) ;
+            
+        } else if (workTime > WORK_TIME_TYPE3_START){
+            //労働時間タイプ3（労働時間8時間超～）
+            
+            //実労働時間
+            actualWorkTimeMin = (int)( ( workTime - REST_TIME_TYPE2 ) / CONV_MINUTE_TO_MILLISEC ) ;
+            
+        }
+        
+   
+        if( actualWorkTimeMin > ACTUAL_WORK_TIME_OVERTIME_OCCUR_MIN ){
+            //残業代が発生する（実労働時間（分）が8時間を超える）場合　= 分給 * 残業が発生する時間（分）+ (分給 * 残業代倍率　* (実労働分 - 残業が発生する実労働時間 ))
+            
+            partTimeFee = ( MINUTES_SALARY * ACTUAL_WORK_TIME_OVERTIME_OCCUR_MIN )
+                          + (int)( MINUTES_SALARY * OVERTIME_SALARY_RATE * ( actualWorkTimeMin - ACTUAL_WORK_TIME_OVERTIME_OCCUR_MIN ) ) ;
+            
+        }else{
+            //残業代が発生しない場合 分給  *　実労働じかん（分）
+            
+            partTimeFee = MINUTES_SALARY * actualWorkTimeMin ;
+        }
+        
+        return partTimeFee ;
+    }
+}
