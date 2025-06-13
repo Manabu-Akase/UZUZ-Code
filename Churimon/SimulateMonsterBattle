@@ -1,0 +1,11 @@
+package churimon;
+
+class SimulateMonsterBattle {
+	public static void main (String[] args) {
+		
+		//やせいバトルを実行 (BattleWildクラス - mainBattleメソッド)
+		BattleWild battleAtWild = new BattleWild();
+		battleAtWild.mainBattle();
+		
+	}
+}
