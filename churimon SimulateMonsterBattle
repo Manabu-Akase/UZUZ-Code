@@ -3,7 +3,7 @@ package churimon;
 class SimulateMonsterBattle {
 	public static void main (String[] args) {
 		
-		//やせいバトル（BattleWildクラス - mainBattleメソッド）を実行
+		//やせいバトルを実行 (BattleWildクラス - mainBattleメソッド)
 		BattleWild battleAtWild = new BattleWild();
 		battleAtWild.mainBattle();
 		
